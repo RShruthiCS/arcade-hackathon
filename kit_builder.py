@@ -12,11 +12,10 @@ PATTERN_W = PATTERN_H = 1024   # size of the patterns Arcade makes
 # "set_size" = how many pieces come in one unit (from the product titles).
 KIT = [
     {"label": "Napkins",    "category": "Napkins",     "size": "20x20", "per_guest": 1, "set_size": 4},
-    {"label": "Tablecloth", "category": "Tablecloths", "size": "60x60", "per_table": 1, "set_size": 1},
-    {"label": "Tea Towels", "category": "Tea Towels",  "size": None,    "fixed": 10, "set_size": 2},
+    {"label": "Tablecloth", "category": "Tablecloths", "size": "60x60", "fixed": 1,     "set_size": 1},
+    {"label": "Tea Towels", "category": "Tea Towels",  "size": None,    "fixed": 4,     "set_size": 2},
     # Later, if the crop problem gets solved:
-    # {"label": "Table Runner", "category": "Table Runners", "size": "18x120", "per_table": 1, "set_size": 1},
-    # {"label": "Placemats",    "category": "Placemats",     "size": "14x19",  "per_guest": 1, "set_size": 1},
+    # ...
 ]
 
 DEFAULT_STYLE = "elegant, romantic, refined, soft and timeless"
@@ -96,16 +95,16 @@ def quantity_for(item, guests, tables):
     return max(1, math.ceil(needed / item.get("set_size", 1)))
 
 
-def build_kit(theme, guests, guests_per_table=8, style=DEFAULT_STYLE):
+def build_kit(theme, guests, guests_per_table=8, style=DEFAULT_STYLE, on_progress=print):
     start = time.time()
     tables = math.ceil(guests / guests_per_table)
 
-    print("Making pattern...")
+    on_progress("Painting your pattern...")
     pattern_id, pattern_image = make_pattern(theme, style)
 
-    print("Making products...")
+    on_progress("Making your napkins, tablecloth and tea towels...")
     categories = call("categories/list", {})["items"]
-    with ThreadPoolExecutor(max_workers=3) as pool:
+    with ThreadPoolExecutor(max_workers=2) as pool:
         results = list(pool.map(lambda it: make_product(pattern_id, it, categories), KIT))
 
     items, lines, total = [], [], 0.0
@@ -120,6 +119,7 @@ def build_kit(theme, guests, guests_per_table=8, style=DEFAULT_STYLE):
         lines.append({"productId": r["productId"], "quantity": qty})
         items.append(r)
 
+    on_progress("Building your checkout...")
     checkout_url = None
     if lines:
         checkout = call("checkouts/create", {
@@ -138,7 +138,6 @@ def build_kit(theme, guests, guests_per_table=8, style=DEFAULT_STYLE):
         "checkoutUrl": checkout_url,
         "seconds": round(time.time() - start),
     }
-
 
 if __name__ == "__main__":
     kit = build_kit("Italian garden, lemons and olive branches", guests=80)
